@@ -1,0 +1,92 @@
+import org.springframework.boot.gradle.plugin.SpringBootPlugin
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'org.springframework.boot' version '3.3.0' apply false
+    id 'io.spring.dependency-management' version '1.1.5'
+    id 'maven-publish'
+    id("signing")
+}
+
+group = 'com.xenotech'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+    mavenLocal()
+}
+
+dependencies {
+    annotationProcessor "org.springframework.boot:spring-boot-autoconfigure-processor"
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom SpringBootPlugin.BOM_COORDINATES
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java']
+        }
+    }
+}
+
+java {
+    withSourcesJar()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = 'com.xenotech'
+            artifactId = 'multitenant-oauth2-spring-boot-starter'
+            version = '0.0.1-SNAPSHOT'
+            from components.java
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            credentials {
+                username = "$mavenU"
+                password = "$mavenP"
+            }
+
+            url = version.endsWith('SNAPSHOT') ? "sftp://repo.myxeno.com:22/home/maven/m2repo/snapshots" : "sftp://repo.myxeno.com:22/home/maven/m2repo/releases"
+        }
+    }
+}
