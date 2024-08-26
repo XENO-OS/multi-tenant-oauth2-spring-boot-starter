@@ -19,9 +19,6 @@ public class HttpHeaderTenantResolver implements TenantResolver<HttpServletReque
     @Nullable
     public String resolveTenantIdentifier(HttpServletRequest request) {
         String headerName = tenantHttpProperties.headerName();
-        if(headerName==null) {
-            headerName = "xeno_investors";
-        }
         return request.getHeader(headerName);
     }
 }
