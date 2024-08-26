@@ -18,6 +18,10 @@ public class HttpHeaderTenantResolver implements TenantResolver<HttpServletReque
     @Override
     @Nullable
     public String resolveTenantIdentifier(HttpServletRequest request) {
-        return request.getHeader(tenantHttpProperties.headerName());
+        String headerName = tenantHttpProperties.headerName();
+        if(headerName==null) {
+            headerName = "xeno_investors";
+        }
+        return request.getHeader(headerName);
     }
 }
