@@ -1,7 +1,7 @@
 package com.xenotech.multitenant;
 
 import com.xenotech.multitenant.context.TenantContextHolder;
-import com.xenotech.multitenant.context.resolvers.HttpHeaderTenantResolver;
+import com.xenotech.multitenant.context.resolvers.OidcTenantResolver;
 import com.xenotech.multitenant.exception.TenantNotFoundException;
 import com.xenotech.multitenant.exception.TenantResolutionException;
 import com.xenotech.multitenant.tenantdetails.TenantDetailsService;
@@ -18,17 +18,17 @@ import java.io.IOException;
 @Component
 public class TenantContextFilter extends OncePerRequestFilter {
 
-    private final HttpHeaderTenantResolver httpRequestTenantResolver;
+    private final OidcTenantResolver oidcTenantResolver;
     private final TenantDetailsService tenantDetailsService;
 
-    public TenantContextFilter(HttpHeaderTenantResolver httpHeaderTenantResolver, TenantDetailsService tenantDetailsService) {
-        this.httpRequestTenantResolver = httpHeaderTenantResolver;
+    public TenantContextFilter(OidcTenantResolver oidcTenantResolver, TenantDetailsService tenantDetailsService) {
+        this.oidcTenantResolver = oidcTenantResolver;
         this.tenantDetailsService = tenantDetailsService;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        var tenantIdentifier = httpRequestTenantResolver.resolveTenantIdentifier(request);
+        var tenantIdentifier = oidcTenantResolver.resolveTenantIdentifier(request);
 
         if(StringUtils.hasText(tenantIdentifier)) {
             if(!isTenantValid(tenantIdentifier)) {

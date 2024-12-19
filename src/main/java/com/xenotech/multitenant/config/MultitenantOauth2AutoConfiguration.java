@@ -1,8 +1,7 @@
 package com.xenotech.multitenant.config;
 
 import com.xenotech.multitenant.TenantContextFilter;
-import com.xenotech.multitenant.config.records.TenantHttpProperties;
-import com.xenotech.multitenant.context.resolvers.HttpHeaderTenantResolver;
+import com.xenotech.multitenant.context.resolvers.OidcTenantResolver;
 import com.xenotech.multitenant.security.TenantAuthenticationManagerResolver;
 import com.xenotech.multitenant.tenantdetails.PropertiesTenantDetailsService;
 import com.xenotech.multitenant.tenantdetails.TenantDetailsService;
@@ -44,14 +43,14 @@ public class MultitenantOauth2AutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public HttpHeaderTenantResolver httpHeaderTenantResolver(MultitenantOauth2Properties properties) {
-        return new HttpHeaderTenantResolver(properties.http());
+    public OidcTenantResolver oidcTenantResolver(MultitenantOauth2Properties properties) {
+        return new OidcTenantResolver();
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public TenantContextFilter tenantContextFilter(HttpHeaderTenantResolver httpHeaderTenantResolver,
+    public TenantContextFilter tenantContextFilter(OidcTenantResolver oidcTenantResolver,
                                                    TenantDetailsService tenantDetailsService) {
-        return new TenantContextFilter(httpHeaderTenantResolver, tenantDetailsService);
+        return new TenantContextFilter(oidcTenantResolver, tenantDetailsService);
     }
 }
