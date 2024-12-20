@@ -67,7 +67,7 @@ publishing {
         mavenJava(MavenPublication) {
             groupId = 'com.xenotech'
             artifactId = 'multitenant-oauth2-spring-boot-starter'
-            version = '0.0.1-SNAPSHOT'
+            version = '0.0.2-SNAPSHOT'
             from components.java
             versionMapping {
                 usage('java-api') {

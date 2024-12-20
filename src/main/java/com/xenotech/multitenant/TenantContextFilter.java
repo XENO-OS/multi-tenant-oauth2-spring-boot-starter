@@ -1,5 +1,7 @@
 package com.xenotech.multitenant;
 
+import com.xenotech.multitenant.config.records.TenantDetails;
+import com.xenotech.multitenant.config.records.TenantPath;
 import com.xenotech.multitenant.context.TenantContextHolder;
 import com.xenotech.multitenant.context.resolvers.OidcTenantResolver;
 import com.xenotech.multitenant.exception.TenantNotFoundException;
@@ -14,6 +16,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 @Component
 public class TenantContextFilter extends OncePerRequestFilter {
@@ -29,13 +32,16 @@ public class TenantContextFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         var tenantIdentifier = oidcTenantResolver.resolveTenantIdentifier(request);
-
-        if(StringUtils.hasText(tenantIdentifier)) {
-            if(!isTenantValid(tenantIdentifier)) {
+        if (!StringUtils.hasText(tenantIdentifier)) {
+            //this could be a public endpoint, let's search to see if it exists in paths
+            tenantIdentifier = searchInPathConfigs(request.getRequestURI());
+        }
+        if (StringUtils.hasText(tenantIdentifier)) {
+            if (!isTenantValid(tenantIdentifier)) {
                 throw new TenantNotFoundException("The specified tenant doesn't exist or it's not enabled");
             }
             TenantContextHolder.setTenantIdentifier(tenantIdentifier);
-        }else {
+        } else {
             throw new TenantResolutionException("A tenant must be specified for requests to %s".formatted(request.getRequestURI()));
         }
 
@@ -44,6 +50,19 @@ public class TenantContextFilter extends OncePerRequestFilter {
         } finally {
             clear();
         }
+    }
+
+    private String searchInPathConfigs(String requestUri) {
+        for (TenantDetails details : tenantDetailsService.loadAllTenants()) {
+            for (TenantPath path : details.paths()) {
+                String regexPattern = path.path().replace("*", ".*");// Convert wildcards to regex
+                Pattern pattern = Pattern.compile(regexPattern);
+                if (pattern.matcher(requestUri).matches()) {
+                    return details.identifier();
+                }
+            }
+        }
+        return "";
     }
 
     @Override
