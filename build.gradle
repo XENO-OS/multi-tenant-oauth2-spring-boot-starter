@@ -2,18 +2,18 @@ import org.springframework.boot.gradle.plugin.SpringBootPlugin
 plugins {
     id 'java'
     id 'java-library'
-    id 'org.springframework.boot' version '3.3.0' apply false
-    id 'io.spring.dependency-management' version '1.1.5'
+    id 'org.springframework.boot' version '4.0.2' apply false
+    id 'io.spring.dependency-management' version '1.1.7'
     id 'maven-publish'
     id("signing")
 }
 
 group = 'com.xenotech'
-version = '0.0.2-SNAPSHOT'
+version = '0.4.0-SNAPSHOT'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -30,7 +30,7 @@ repositories {
 }
 
 dependencies {
-    annotationProcessor "org.springframework.boot:spring-boot-autoconfigure-processor"
+    annotationProcessor 'org.springframework.boot:spring-boot-autoconfigure-processor'
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -67,7 +67,6 @@ publishing {
         mavenJava(MavenPublication) {
             groupId = 'com.xenotech'
             artifactId = 'multitenant-oauth2-spring-boot-starter'
-            version = '0.0.2-SNAPSHOT'
             from components.java
             versionMapping {
                 usage('java-api') {
