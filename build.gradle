@@ -30,7 +30,7 @@ repositories {
 }
 
 dependencies {
-    annotationProcessor "org.springframework.boot:spring-boot-autoconfigure-processor"
+    annotationProcessor 'org.springframework.boot:spring-boot-autoconfigure-processor'
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -66,8 +66,8 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             groupId = 'com.xenotech'
-            artifactId = 'multitenant-oauth2-spring-boot-starter'
-            version = '0.3.0-SNAPSHOT'
+//            artifactId = 'multitenant-oauth2-spring-boot-starter'
+//            version = '0.3.0-SNAPSHOT'
             from components.java
             versionMapping {
                 usage('java-api') {
