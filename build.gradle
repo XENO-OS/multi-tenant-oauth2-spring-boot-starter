@@ -123,8 +123,9 @@ publishing {
     repositories {
         maven {
             credentials {
-                username = "$mavenU"
-                password = "$mavenP"
+                // Only needed by `publish`; resolved without failing so test/build work without credentials (CI).
+                username = providers.gradleProperty('mavenU').orElse(providers.environmentVariable('MAVEN_U')).getOrNull()
+                password = providers.gradleProperty('mavenP').orElse(providers.environmentVariable('MAVEN_P')).getOrNull()
             }
 
             url = version.endsWith('SNAPSHOT') ? "sftp://repo.myxeno.com:22/home/maven/m2repo/snapshots" : "sftp://repo.myxeno.com:22/home/maven/m2repo/releases"
