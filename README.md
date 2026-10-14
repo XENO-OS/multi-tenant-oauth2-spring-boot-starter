@@ -124,10 +124,11 @@ Keep `client-secret` out of source control; use your config server's encryption 
 
 ## Usage
 
-### 1. Wire the resolver into Spring Security
+### 1. Wire the filter and resolver into Spring Security
 
-The starter provides a `TenantAuthenticationManagerResolver` bean. Plug it into your resource-server
-configuration:
+The starter provides a `TenantContextFilter` and a `TenantAuthenticationManagerResolver` bean. Register the
+filter **before** `BearerTokenAuthenticationFilter` so the tenant is known when the token is authenticated,
+and plug the resolver into your resource-server configuration:
 
 ```java
 @Configuration
@@ -136,16 +137,21 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                            TenantAuthenticationManagerResolver resolver) throws Exception {
+                                            TenantAuthenticationManagerResolver resolver,
+                                            TenantContextFilter tenantContextFilter) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/public/**", "/actuator/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.authenticationManagerResolver(resolver))
+                .addFilterBefore(tenantContextFilter, BearerTokenAuthenticationFilter.class)
                 .build();
     }
 }
 ```
+
+Without `addFilterBefore`, the filter runs after Spring Security and every authenticated request fails with
+`TenantNotFoundException`.
 
 ### 2. Read the current tenant
 
@@ -159,7 +165,7 @@ another thread, pass the identifier along yourself.
 
 ### How a tenant is resolved
 
-For each request, `TenantContextFilter` runs before authentication:
+For each request, `TenantContextFilter` (registered before `BearerTokenAuthenticationFilter`, see above) runs:
 
 1. If the request carries `Authorization: Bearer <jwt>`, the `iss` claim is read (without validating
    the signature) and the last path segment of the issuer (`https://issuer1.com/realms/realm_1` →
