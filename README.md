@@ -201,7 +201,7 @@ Unit and integration tests live in separate source sets (see `aaaaa-standards` Â
 
 The `CI` workflow (`.github/workflows/ci.yml`) runs unit tests and then integration tests on every push to `main`.
 
-Publishing goes to the Xeno Maven repository and needs `mavenU` and `mavenP` in `~/.gradle/gradle.properties`.
+Publishing goes to the Xeno Maven repository (`https://repo.myxeno.com/m2`) and needs `mavenU` and `mavenP`, either as environment variables or in `~/.gradle/gradle.properties`. Without them the repository is not registered, so `publishToMavenLocal` still works.
 Versions ending in `-SNAPSHOT` go to the snapshots repository, all others to releases:
 
 ```bash

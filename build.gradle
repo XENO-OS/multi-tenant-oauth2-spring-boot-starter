@@ -121,14 +121,22 @@ publishing {
         }
     }
     repositories {
-        maven {
-            credentials {
-                // Only needed by `publish`; resolved without failing so test/build work without credentials (CI).
-                username = providers.gradleProperty('mavenU').orElse(providers.environmentVariable('MAVEN_U')).getOrNull()
-                password = providers.gradleProperty('mavenP').orElse(providers.environmentVariable('MAVEN_P')).getOrNull()
+        // repo.myxeno.com fronts /m2 over HTTPS (443): reads are GET, writes are HTTP PUT via nginx WebDAV.
+        // Registered only when mavenU/mavenP creds are present (env or ~/.gradle/gradle.properties),
+        // so publishToMavenLocal works without them.
+        def mavenUser = System.getenv('mavenU') ?: findProperty('mavenU')
+        def mavenPassword = System.getenv('mavenP') ?: findProperty('mavenP')
+        if (mavenUser && mavenPassword) {
+            maven {
+                name = 'myxeno'
+                credentials {
+                    username = mavenUser
+                    password = mavenPassword
+                }
+                url = version.endsWith('SNAPSHOT')
+                        ? 'https://repo.myxeno.com/m2/snapshots'
+                        : 'https://repo.myxeno.com/m2/releases'
             }
-
-            url = version.endsWith('SNAPSHOT') ? "sftp://repo.myxeno.com:22/home/maven/m2repo/snapshots" : "sftp://repo.myxeno.com:22/home/maven/m2repo/releases"
         }
     }
 }
