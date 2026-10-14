@@ -186,7 +186,7 @@ Each line is built from its own branch with its own toolchain (`main`: Java 25, 
 ./gradlew clean build
 ```
 
-Publishing goes to the Xeno Maven repository and needs `mavenU` and `mavenP` in `~/.gradle/gradle.properties`.
+Publishing goes to the Xeno Maven repository (`https://repo.myxeno.com/m2`) and needs `mavenU` and `mavenP`, either as environment variables or in `~/.gradle/gradle.properties`. Without them the repository is not registered, so `publishToMavenLocal` still works.
 Versions ending in `-SNAPSHOT` go to the snapshots repository, all others to releases:
 
 ```bash
