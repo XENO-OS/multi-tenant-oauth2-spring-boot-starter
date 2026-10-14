@@ -1,5 +1,8 @@
 # Multi-Tenant OAuth2 Spring Boot Starter
 
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/XENO-OS/multi-tenant-oauth2-spring-boot-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/XENO-OS/multi-tenant-oauth2-spring-boot-starter/actions/workflows/ci.yml)
+
 Multi-tenant JWT validation for Spring Security resource servers. A single application can accept
 tokens from several issuers (for example several Keycloak realms); the issuer of each incoming token
 selects the tenant, and the token is validated against that tenant's configured issuer.
@@ -117,10 +120,11 @@ Keep `client-secret` out of source control; use your config server's encryption 
 
 ## Usage
 
-### 1. Wire the resolver into Spring Security
+### 1. Wire the filter and resolver into Spring Security
 
-The starter provides a `TenantAuthenticationManagerResolver` bean. Plug it into your resource-server
-configuration:
+The starter provides a `TenantContextFilter` and a `TenantAuthenticationManagerResolver` bean. Register the
+filter **before** `BearerTokenAuthenticationFilter` so the tenant is known when the token is authenticated,
+and plug the resolver into your resource-server configuration:
 
 ```java
 @Configuration
@@ -129,16 +133,21 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                            TenantAuthenticationManagerResolver resolver) throws Exception {
+                                            TenantAuthenticationManagerResolver resolver,
+                                            TenantContextFilter tenantContextFilter) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/public/**", "/actuator/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.authenticationManagerResolver(resolver))
+                .addFilterBefore(tenantContextFilter, BearerTokenAuthenticationFilter.class)
                 .build();
     }
 }
 ```
+
+Without `addFilterBefore`, the filter runs after Spring Security and every authenticated request fails with
+`TenantNotFoundException`.
 
 ### 2. Read the current tenant
 
@@ -152,7 +161,7 @@ another thread, pass the identifier along yourself.
 
 ### How a tenant is resolved
 
-For each request, `TenantContextFilter` runs before authentication:
+For each request, `TenantContextFilter` (registered before `BearerTokenAuthenticationFilter`, see above) runs:
 
 1. If the request carries `Authorization: Bearer <jwt>`, the `iss` claim is read (without validating
    the signature) and the last path segment of the issuer (`https://issuer1.com/realms/realm_1` →
@@ -178,13 +187,19 @@ Declare your own bean of any of these types and the starter's default backs off:
 | `OidcTenantResolver`                  | Change how the tenant identifier is derived from a request    |
 | `TenantContextFilter`                 | Change the filter behaviour                                   |
 
-## Building and releasing
+## Building and testing
 
-Each line is built from its own branch with its own toolchain (`main`: Java 25, `3.x.x`: Java 17):
+Each line is built from its own branch with its own toolchain (`main`: Java 25, `3.x.x`: Java 17).
+Unit and integration tests live in separate source sets (see `aaaaa-standards` §13.6):
 
-```bash
-./gradlew clean build
-```
+| Task                       | Source set                | What it covers                                                                 |
+|----------------------------|---------------------------|--------------------------------------------------------------------------------|
+| `./gradlew test`           | `src/test`                | Unit tests: tenant context, resolver, filter, tenant details, token utils      |
+| `./gradlew integrationTest`| `src/integrationTest`     | Full Spring Boot context over HTTP against an in-process stub OIDC issuer: multiple tenants, public paths, forged/expired tokens, unknown and disabled tenants. No Docker needed. |
+| `./gradlew build`          | both                      | Compiles, runs both test tasks and assembles the jars                          |
+| `./gradlew jacocoTestReport` | -                       | Coverage report in `build/reports/jacoco`                                      |
+
+The `CI` workflow (`.github/workflows/ci.yml`) runs unit tests and then integration tests on every push to `main`.
 
 Publishing goes to the Xeno Maven repository and needs `mavenU` and `mavenP` in `~/.gradle/gradle.properties`.
 Versions ending in `-SNAPSHOT` go to the snapshots repository, all others to releases:

@@ -20,4 +20,9 @@ class TokenUtilsTest {
         assertEquals("4b43723a-9fd7-4073-a934-2fe8ec905388", jwtClaimSet.getSubject());
     }
 
+    @Test
+    void invalidTokenIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> TokenUtils.getJWTClaimSet("not-a-jwt"));
+    }
+
 }

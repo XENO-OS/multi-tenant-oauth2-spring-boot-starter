@@ -5,6 +5,7 @@ plugins {
     id 'org.springframework.boot' version '4.0.2' apply false
     id 'io.spring.dependency-management' version '1.1.7'
     id 'maven-publish'
+    id 'jacoco'
     id("signing")
 }
 
@@ -46,8 +47,50 @@ dependencyManagement {
     }
 }
 
+// Test separation (see aaaaa-standards 13.6):
+//   * `test`            -> fast unit tests in src/test/java (no Spring context, no network)
+//   * `integrationTest` -> full Spring Boot context + real HTTP in src/integrationTest/java
+//                          (an in-process stub OIDC issuer is used, so no Docker is needed)
+// `check` runs both.
+sourceSets {
+    integrationTest {
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.test.output
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests (Spring Boot context against a stub OIDC issuer).'
+    group = 'verification'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter tasks.named('test')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('integrationTest')
+}
+
+jacocoTestReport {
+    dependsOn tasks.named('test'), tasks.named('integrationTest')
+    executionData fileTree(layout.buildDirectory).matching { include 'jacoco/*.exec' }
+    reports {
+        xml.required = true
+    }
+}
+
+jacoco {
+    toolVersion = '0.8.14'
 }
 
 sourceSets {
