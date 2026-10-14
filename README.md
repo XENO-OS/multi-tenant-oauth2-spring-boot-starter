@@ -1,77 +1,205 @@
 # Multi-Tenant OAuth2 Spring Boot Starter
-This library provides support for integrating multiple JWT issuer URLs,
-allowing the use of multiple realms within a single Spring Boot application.
-It is designed to simplify the configuration and management of multiple OAuth2 identity providers for multi-tenant applications.
 
+Multi-tenant JWT validation for Spring Security resource servers. A single application can accept
+tokens from several issuers (for example several Keycloak realms); the issuer of each incoming token
+selects the tenant, and the token is validated against that tenant's configured issuer.
 
-### Features
+## Features
 
-* Support for multiple JWT issuers
-* Configuration of multiple realms
-* Automatic JWT validation for each realm
-* Easy integration with Spring Security
+* Multiple JWT issuers / realms in one application, configured through `application.yml`
+* Tenant resolved automatically from the `iss` claim of the bearer token
+* Per-tenant `AuthenticationManager` (JWT decoder built on first use from the issuer and cached)
+* Public endpoints can be bound to a tenant by path, so requests without a token still get a tenant context
+* `TenantContextHolder` exposes the current tenant to the rest of the application
+* Spring Boot auto-configuration; every bean is `@ConditionalOnMissingBean`, so any of them can be replaced
 
-### Requirements
-* Java 17 or higher
-* Spring Boot 3.x or higher
+## Releases and compatibility
 
-### Installation
-Add the following dependency to your pom.xml file:
+There are two release lines. Pick the one that matches your Spring Boot version.
+
+| Spring Boot | Java | Artifact                                  | Version | Branch  |
+|-------------|------|-------------------------------------------|---------|---------|
+| 4.x         | 25   | `multitenant-oauth2-spring-boot4-starter` | `0.4.0` | `main`  |
+| 3.x         | 17+  | `multitenant-oauth2-spring-boot3-starter` | `0.3.0` | `3.x.x` |
+
+Both lines share the same package (`com.xenotech.multitenant`), configuration properties and behaviour.
+The only source difference is the auto-configuration, which imports the Spring Boot 3 or Spring Boot 4
+locations of `SecurityAutoConfiguration`, `UserDetailsServiceAutoConfiguration` and `WebMvcAutoConfiguration`.
+Use exactly one of the two artifacts; do not put both on the same classpath.
+
+> The older `com.xenotech:multitenant-oauth2-spring-boot-starter` (`0.0.x`) artifact is the previous
+> naming. New work should use one of the artifacts above.
+
+## Installation
+
+The artifacts are published to the Xeno Maven repository (`repo.myxeno.com`), which must be
+available to your build.
+
+### Spring Boot 4
+
+```groovy
+dependencies {
+    implementation 'com.xenotech:multitenant-oauth2-spring-boot4-starter:0.4.0'
+}
+```
+
 ```xml
 <dependency>
-<groupId>com.xenotech</groupId>
-<artifactId>multitenant-oauth2-spring-boot-starter</artifactId>
-<version>0.0.1-SNAPSHOT</version>
+    <groupId>com.xenotech</groupId>
+    <artifactId>multitenant-oauth2-spring-boot4-starter</artifactId>
+    <version>0.4.0</version>
 </dependency>
 ```
-For Gradle, add the following line to your build.gradle file:
+
+### Spring Boot 3
+
 ```groovy
-implementation 'com.xenotech:multitenant-oauth2-spring-boot-starter:0.0.1-SNAPSHOT'
+dependencies {
+    implementation 'com.xenotech:multitenant-oauth2-spring-boot3-starter:0.3.0'
+}
 ```
-### Configuration
-1. **Define JWT Issuers**
-   In your application.yml or application.properties, define the JWT issuers and their configurations:
+
+```xml
+<dependency>
+    <groupId>com.xenotech</groupId>
+    <artifactId>multitenant-oauth2-spring-boot3-starter</artifactId>
+    <version>0.3.0</version>
+</dependency>
+```
+
+The starter brings in `spring-boot-starter-oauth2-resource-server`, `spring-boot-starter-security` and
+`spring-boot-starter-web`. It only activates in servlet web applications.
+
+## Configuration
+
+Tenants are defined under `spring.security.oauth2.resourceserver.multitenancy.tenants`:
 
 ```yaml
-multitenancy:
-  http:
-    header-name: X-TenantId
-  tenants:
-    - identifier: tenant_1
-      enabled: true
-      server-url: https://issuer1.com
-      realm: realm_1
-      client-id: client_1
-      client-secret: S3CR3T
-      issuer: https://issuer1.com/realms/realm_1
-      lazy-load-paths: true
-      paths:
-        - path: /api/v1/xx/xx/*
-          name: public
-          enforcement-mode: DISABLED
-    - identifier: tenant_2
-      enabled: true
-      server-url: https://issuer2.com
-      realm: realm_2
-      client-id: client_2
-      client-secret: S3CR3T
-      issuer:  https://issuer2.com/realms/realm_2
-      lazy-load-paths: true
-      paths:
-        - path: /api/v1/xx/xx/*
-          name: public
-          enforcement-mode: DISABLED
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        multitenancy:
+          tenants:
+            - identifier: realm_1
+              enabled: true
+              server-url: https://issuer1.com
+              realm: realm_1
+              client-id: client_1
+              client-secret: S3CR3T
+              issuer: https://issuer1.com/realms/realm_1
+              lazy-load-paths: true
+              paths:
+                - path: /api/v1/public/*
+                  name: public
+                  enforcement-mode: DISABLED
+            - identifier: realm_2
+              enabled: true
+              server-url: https://issuer2.com
+              realm: realm_2
+              client-id: client_2
+              client-secret: S3CR3T
+              issuer: https://issuer2.com/realms/realm_2
+              lazy-load-paths: true
+              paths: []
 ```
 
-### Usage
-Once configured, the library will automatically handle the validation of JWTs from the specified issuers.
-You can add as many issuers as needed to support multiple realms within your application.
+| Property                                            | Description |
+|-----------------------------------------------------|-------------|
+| `identifier`                                        | Tenant key. Must equal the last path segment of the token issuer (the realm name); see [How a tenant is resolved](#how-a-tenant-is-resolved). |
+| `enabled`                                           | Disabled tenants are rejected. |
+| `issuer`                                            | Issuer URI used to build the JWT decoder (issuer discovery / JWKS). |
+| `server-url`, `realm`, `client-id`, `client-secret` | Identity provider details carried on the tenant for use by your own code. |
+| `lazy-load-paths`, `enforcement-mode`, `name`       | Carried on the tenant for use by your own code; the starter does not act on them. |
+| `paths[].path`                                      | Pattern (`*` matches any characters) of endpoints bound to this tenant when no bearer token is sent. Use `paths: []` when a tenant has none. |
 
-### License
+Keep `client-secret` out of source control; use your config server's encryption or environment variables.
+
+## Usage
+
+### 1. Wire the resolver into Spring Security
+
+The starter provides a `TenantAuthenticationManagerResolver` bean. Plug it into your resource-server
+configuration:
+
+```java
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                            TenantAuthenticationManagerResolver resolver) throws Exception {
+        return http
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/public/**", "/actuator/**").permitAll()
+                        .anyRequest().authenticated())
+                .oauth2ResourceServer(oauth2 -> oauth2.authenticationManagerResolver(resolver))
+                .build();
+    }
+}
+```
+
+### 2. Read the current tenant
+
+```java
+String tenant = TenantContextHolder.getRequiredTenantIdentifier(); // throws TenantNotFoundException if unset
+String maybe  = TenantContextHolder.getTenantIdentifier();         // nullable
+```
+
+The context is stored in a `ThreadLocal` and cleared when the request finishes. If you hand work to
+another thread, pass the identifier along yourself.
+
+### How a tenant is resolved
+
+For each request, `TenantContextFilter` runs before authentication:
+
+1. If the request carries `Authorization: Bearer <jwt>`, the `iss` claim is read (without validating
+   the signature) and the last path segment of the issuer (`https://issuer1.com/realms/realm_1` →
+   `realm_1`) is used as the tenant identifier.
+2. If no tenant came from a token, the request URI is matched against every tenant's `paths` and the
+   matching tenant is used. This is how public endpoints get a tenant.
+3. The tenant must exist and be `enabled`, otherwise `TenantNotFoundException` is thrown. If no tenant can
+   be determined at all, `TenantResolutionException` is thrown.
+4. `TenantAuthenticationManagerResolver` then validates the token against that tenant's configured
+   `issuer`. The `iss` claim only selects one of your configured tenants; it is never used as the trust
+   source itself.
+
+Requests to `/actuator/**` bypass the filter.
+
+### Customising
+
+Declare your own bean of any of these types and the starter's default backs off:
+
+| Bean                                  | Purpose                                                       |
+|---------------------------------------|---------------------------------------------------------------|
+| `TenantDetailsService`                | Load tenants from a database or service instead of properties |
+| `TenantAuthenticationManagerResolver` | Change how a tenant's `AuthenticationManager` is built        |
+| `OidcTenantResolver`                  | Change how the tenant identifier is derived from a request    |
+| `TenantContextFilter`                 | Change the filter behaviour                                   |
+
+## Building and releasing
+
+Each line is built from its own branch with its own toolchain (`main`: Java 25, `3.x.x`: Java 17):
+
+```bash
+./gradlew clean build
+```
+
+Publishing goes to the Xeno Maven repository and needs `mavenU` and `mavenP` in `~/.gradle/gradle.properties`.
+Versions ending in `-SNAPSHOT` go to the snapshots repository, all others to releases:
+
+```bash
+./gradlew publish
+```
+
+To cut a release: drop `-SNAPSHOT` from `version` in `build.gradle`, build, publish, tag
+(`v0.4.0` on `main`, `v0.3.0` on `3.x.x`), then move to the next `-SNAPSHOT`.
+
+## License
+
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-### Acknowledgements
-This library was inspired by the need to support multi-tenant OAuth2 configurations in Spring Boot applications.
+## Contact
 
-Contact
 For questions or support, please contact vkakama@gmail.com.
