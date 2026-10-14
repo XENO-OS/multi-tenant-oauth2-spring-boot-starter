@@ -18,17 +18,18 @@ selects the tenant, and the token is validated against that tenant's configured 
 
 ## Releases and compatibility
 
-There are two release lines. Pick the one that matches your Spring Boot version.
+Spring Boot 4 is the only supported line. The Spring Boot 3 line is **end of life**: `0.3.0` is its final
+release and it will receive no further releases, fixes or security updates.
 
-| Spring Boot | Java | Artifact                                  | Version | Branch  |
-|-------------|------|-------------------------------------------|---------|---------|
-| 4.x         | 25   | `multitenant-oauth2-spring-boot4-starter` | `0.4.0` | `main`  |
-| 3.x         | 17+  | `multitenant-oauth2-spring-boot3-starter` | `0.3.0` | `3.x.x` |
+| Spring Boot | Java | Artifact                                  | Version | Branch  | Status                    |
+|-------------|------|-------------------------------------------|---------|---------|---------------------------|
+| 4.x         | 25   | `multitenant-oauth2-spring-boot4-starter` | `0.4.0` | `main`  | Supported                 |
+| 3.x         | 17+  | `multitenant-oauth2-spring-boot3-starter` | `0.3.0` | `3.x.x` | **End of life** (final)   |
 
-Both lines share the same package (`com.xenotech.multitenant`), configuration properties and behaviour.
-The only source difference is the auto-configuration, which imports the Spring Boot 3 or Spring Boot 4
-locations of `SecurityAutoConfiguration`, `UserDetailsServiceAutoConfiguration` and `WebMvcAutoConfiguration`.
-Use exactly one of the two artifacts; do not put both on the same classpath.
+Both lines share the same package (`com.xenotech.multitenant`) and configuration properties, so moving from
+the Spring Boot 3 artifact to the Spring Boot 4 one is a dependency swap (and a Spring Boot / Java 25 upgrade
+of your application); no configuration changes are needed. Use exactly one of the two artifacts.
+The `3.x.x` branch is frozen and kept only so existing `0.3.0` users can read its source.
 
 > The older `com.xenotech:multitenant-oauth2-spring-boot-starter` (`0.0.x`) artifact is the previous
 > naming. New work should use one of the artifacts above.
@@ -54,7 +55,9 @@ dependencies {
 </dependency>
 ```
 
-### Spring Boot 3
+### Spring Boot 3 (end of life)
+
+> No further releases. Plan your upgrade to Spring Boot 4 and the `0.4.x` artifact.
 
 ```groovy
 dependencies {
@@ -189,7 +192,7 @@ Declare your own bean of any of these types and the starter's default backs off:
 
 ## Building and testing
 
-Each line is built from its own branch with its own toolchain (`main`: Java 25, `3.x.x`: Java 17).
+The supported line is built from `main` (Java 25). The end-of-life `3.x.x` branch (Java 17) is frozen.
 Unit and integration tests live in separate source sets (see `aaaaa-standards` §13.6):
 
 | Task                       | Source set                | What it covers                                                                 |
@@ -209,7 +212,7 @@ Versions ending in `-SNAPSHOT` go to the snapshots repository, all others to rel
 ```
 
 To cut a release: drop `-SNAPSHOT` from `version` in `build.gradle`, build, publish, tag
-(`v0.4.0` on `main`, `v0.3.0` on `3.x.x`), then move to the next `-SNAPSHOT`.
+(e.g. `v0.4.0`), then move to the next `-SNAPSHOT`.
 
 ## License
 
