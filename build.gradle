@@ -9,7 +9,7 @@ plugins {
 }
 
 group = 'com.xenotech'
-version = '0.3.0-SNAPSHOT'
+version = '0.3.0'
 
 java {
     toolchain {
@@ -67,7 +67,7 @@ publishing {
         mavenJava(MavenPublication) {
             groupId = 'com.xenotech'
 //            artifactId = 'multitenant-oauth2-spring-boot-starter'
-//            version = '0.3.0-SNAPSHOT'
+//            version = '0.3.0'
             from components.java
             versionMapping {
                 usage('java-api') {
