@@ -13,6 +13,7 @@ import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,6 +60,35 @@ class MultitenantOauth2AutoConfigurationTest {
             assertEquals("/api/v1/public/*", tenant.paths().getFirst().path());
             assertEquals("DISABLED", tenant.paths().getFirst().enforcementMode());
         });
+    }
+
+    @Test
+    void defaultsTheIssuerTimeoutsToFiveSeconds() {
+        webRunner.run(context -> {
+            var issuerHttp = context.getBean(MultitenantOauth2Properties.class).issuerHttp();
+
+            assertEquals(Duration.ofSeconds(5), issuerHttp.connectTimeout());
+            assertEquals(Duration.ofSeconds(5), issuerHttp.readTimeout());
+        });
+    }
+
+    @Test
+    void bindsConfiguredIssuerTimeouts() {
+        webRunner.withPropertyValues(
+                        "spring.security.oauth2.resourceserver.multitenancy.issuer-http.connect-timeout=2s",
+                        "spring.security.oauth2.resourceserver.multitenancy.issuer-http.read-timeout=1500ms")
+                .run(context -> {
+                    var issuerHttp = context.getBean(MultitenantOauth2Properties.class).issuerHttp();
+
+                    assertEquals(Duration.ofSeconds(2), issuerHttp.connectTimeout());
+                    assertEquals(Duration.ofMillis(1500), issuerHttp.readTimeout());
+                });
+    }
+
+    @Test
+    void failsToStartOnANonPositiveIssuerTimeout() {
+        webRunner.withPropertyValues("spring.security.oauth2.resourceserver.multitenancy.issuer-http.read-timeout=0s")
+                .run(context -> assertThat(context).hasFailed());
     }
 
     @Test

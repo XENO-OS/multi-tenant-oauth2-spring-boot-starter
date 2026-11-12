@@ -11,7 +11,8 @@ selects the tenant, and the token is validated against that tenant's configured 
 
 * Multiple JWT issuers / realms in one application, configured through `application.yml`
 * Tenant resolved automatically from the `iss` claim of the bearer token
-* Per-tenant `AuthenticationManager` (JWT decoder built on first use from the issuer and cached)
+* Per-tenant `AuthenticationManager` (JWT decoder built on first use from the issuer and cached), with
+  configurable timeouts for the calls to the issuer
 * Public endpoints can be bound to a tenant by path, so requests without a token still get a tenant context
 * `TenantContextHolder` exposes the current tenant to the rest of the application
 * Spring Boot auto-configuration; every bean is `@ConditionalOnMissingBean`, so any of them can be replaced
@@ -121,6 +122,32 @@ spring:
 
 Keep `client-secret` out of source control; use your config server's encryption or environment variables.
 
+### Issuer timeouts
+
+A tenant's JWT decoder calls its issuer for the OIDC discovery document on first use, and for the JWK set on
+first use and whenever the keys are refreshed. Both calls use these timeouts:
+
+```yaml
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        multitenancy:
+          issuer-http:
+            connect-timeout: 5s
+            read-timeout: 5s
+```
+
+| Property                     | Default | Description |
+|------------------------------|---------|-------------|
+| `issuer-http.connect-timeout` | `5s`    | Time allowed to open a connection to the issuer. |
+| `issuer-http.read-timeout`    | `5s`    | Time allowed to wait for the issuer's response. |
+
+Both must be positive; the application fails to start otherwise. Spring Security's own default for these calls
+is 500 ms, which an issuer a few hundred milliseconds away (a Keycloak in another region, or reached from a
+laptop) exceeds intermittently. The failure surfaces as an authentication error, and an application that
+forwards it to `/error` behind a policy enforcer can report it as a 403, which looks like a permissions problem.
+
 ## Usage
 
 ### 1. Wire the filter and resolver into Spring Security
@@ -198,7 +225,7 @@ Unit and integration tests live in separate source sets (see `aaaaa-standards` Â
 | Task                       | Source set                | What it covers                                                                 |
 |----------------------------|---------------------------|--------------------------------------------------------------------------------|
 | `./gradlew test`           | `src/test`                | Unit tests: tenant context, resolver, filter, tenant details, token utils      |
-| `./gradlew integrationTest`| `src/integrationTest`     | Full Spring Boot context over HTTP against an in-process stub OIDC issuer: multiple tenants, public paths, forged/expired tokens, unknown and disabled tenants. No Docker needed. |
+| `./gradlew integrationTest`| `src/integrationTest`     | Full Spring Boot context over HTTP against an in-process stub OIDC issuer: multiple tenants, public paths, forged/expired tokens, unknown and disabled tenants, issuer timeouts against a deliberately slow realm. No Docker needed. |
 | `./gradlew build`          | both                      | Compiles, runs both test tasks and assembles the jars                          |
 | `./gradlew jacocoTestReport` | -                       | Coverage report in `build/reports/jacoco`                                      |
 

@@ -37,8 +37,9 @@ public class MultitenantOauth2AutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public TenantAuthenticationManagerResolver tenantAuthenticationManagerResolver(TenantDetailsService tenantDetailsService) {
-        return new TenantAuthenticationManagerResolver(tenantDetailsService);
+    public TenantAuthenticationManagerResolver tenantAuthenticationManagerResolver(TenantDetailsService tenantDetailsService,
+                                                                                   MultitenantOauth2Properties properties) {
+        return new TenantAuthenticationManagerResolver(tenantDetailsService, properties.issuerHttp());
     }
 
     @Bean

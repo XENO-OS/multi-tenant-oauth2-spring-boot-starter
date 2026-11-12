@@ -16,12 +16,22 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.concurrent.Executors;
 
 /**
  * In-process OIDC provider: serves discovery documents and a JWKS for any realm under {@code /realms/{realm}}
  * and signs tokens with the matching private key. Stands in for Keycloak so the integration tests need no Docker.
+ *
+ * <p>The realm {@value #SLOW_REALM} answers every request after {@link #SLOW_RESPONSE_MILLIS} ms, standing in
+ * for an issuer that is reachable but far away.
  */
 final class StubIssuer {
+
+    /** The realm whose responses are delayed. */
+    static final String SLOW_REALM = "slow";
+
+    /** Longer than Spring Security's 500 ms default for issuer calls, shorter than the starter's 5 s default. */
+    static final long SLOW_RESPONSE_MILLIS = 800;
 
     private static final StubIssuer INSTANCE = new StubIssuer();
 
@@ -38,6 +48,13 @@ final class StubIssuer {
         server.createContext("/realms/", exchange -> {
             var path = exchange.getRequestURI().getPath();
             var realmPath = path.substring(0, path.indexOf("/", "/realms/".length()));
+            if (realmPath.equals("/realms/" + SLOW_REALM)) {
+                try {
+                    Thread.sleep(SLOW_RESPONSE_MILLIS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             String body;
             if (path.endsWith("/.well-known/openid-configuration")) {
                 var issuer = baseUrl() + realmPath;
@@ -59,6 +76,8 @@ final class StubIssuer {
                 out.write(bytes);
             }
         });
+        // One thread per request, so a delayed realm never holds up the others.
+        server.setExecutor(Executors.newCachedThreadPool());
         server.start();
     }
 
