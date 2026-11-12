@@ -24,7 +24,7 @@ release and it will receive no further releases, fixes or security updates.
 
 | Spring Boot | Java | Artifact                                  | Version | Branch  | Status                    |
 |-------------|------|-------------------------------------------|---------|---------|---------------------------|
-| 4.x         | 25   | `multitenant-oauth2-spring-boot4-starter` | `0.4.0` | `main`  | Supported                 |
+| 4.x         | 25   | `multitenant-oauth2-spring-boot4-starter` | `0.4.1` | `main`  | Supported                 |
 | 3.x         | 17+  | `multitenant-oauth2-spring-boot3-starter` | `0.3.0` | `3.x.x` | **End of life** (final)   |
 
 Both lines share the same package (`com.xenotech.multitenant`) and configuration properties, so moving from
@@ -44,7 +44,7 @@ available to your build.
 
 ```groovy
 dependencies {
-    implementation 'com.xenotech:multitenant-oauth2-spring-boot4-starter:0.4.0'
+    implementation 'com.xenotech:multitenant-oauth2-spring-boot4-starter:0.4.1'
 }
 ```
 
@@ -52,7 +52,7 @@ dependencies {
 <dependency>
     <groupId>com.xenotech</groupId>
     <artifactId>multitenant-oauth2-spring-boot4-starter</artifactId>
-    <version>0.4.0</version>
+    <version>0.4.1</version>
 </dependency>
 ```
 
