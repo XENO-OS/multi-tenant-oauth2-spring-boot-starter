@@ -57,3 +57,75 @@ jobs:
           path: |
             build/reports/tests/integrationTest
             build/reports/jacoco
+
+  # Releases whatever non-SNAPSHOT version reaches main, once both test jobs pass:
+  # publish (when the Maven credentials are configured), confirm the artifact is downloadable,
+  # then tag v<version> and create the GitHub release. A SNAPSHOT or an already-tagged
+  # version is a no-op, so ordinary pushes to main release nothing.
+  release:
+    name: Release
+    needs: integration-tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      # Read by build.gradle; when unset the myxeno repository is not registered and publish is skipped.
+      mavenU: ${{ secrets.MYXENO_MAVEN_USERNAME }}
+      mavenP: ${{ secrets.MYXENO_MAVEN_PASSWORD }}
+      ARTIFACT: multitenant-oauth2-spring-boot4-starter
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decide whether this push is a release
+        id: version
+        run: |
+          version=$(sed -n "s/^version = '\(.*\)'$/\1/p" build.gradle)
+          if [[ -z "$version" ]]; then
+            echo "::error::could not read version from build.gradle"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$version" == *-SNAPSHOT ]]; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "$version is a SNAPSHOT: nothing to release."
+          elif git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "v$version is already tagged: nothing to release."
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "Releasing $version."
+          fi
+      - name: Set up JDK 25
+        if: steps.version.outputs.release == 'true' && env.mavenU != ''
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+      - name: Set up Gradle
+        if: steps.version.outputs.release == 'true' && env.mavenU != ''
+        uses: gradle/actions/setup-gradle@v4
+      - name: Publish to repo.myxeno.com
+        if: steps.version.outputs.release == 'true' && env.mavenU != ''
+        run: ./gradlew publish
+      - name: Confirm the artifact is downloadable
+        if: steps.version.outputs.release == 'true'
+        run: |
+          version='${{ steps.version.outputs.version }}'
+          url="https://repo.myxeno.com/m2/releases/com/xenotech/$ARTIFACT/$version/$ARTIFACT-$version.pom"
+          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$url")
+          if [[ "$status" != "200" ]]; then
+            echo "::error::$ARTIFACT $version is not in repo.myxeno.com (HTTP $status). Publish it, or set the MYXENO_MAVEN_USERNAME and MYXENO_MAVEN_PASSWORD secrets, then re-run."
+            exit 1
+          fi
+      - name: Tag and create the GitHub release
+        if: steps.version.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version='${{ steps.version.outputs.version }}'
+          gh release create "v$version" \
+            --target "$GITHUB_SHA" \
+            --title "$version (Spring Boot 4)" \
+            --notes "Artifact: \`com.xenotech:$ARTIFACT:$version\`. Requires Java 25." \
+            --generate-notes

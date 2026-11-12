@@ -229,7 +229,8 @@ Unit and integration tests live in separate source sets (see `aaaaa-standards` Â
 | `./gradlew build`          | both                      | Compiles, runs both test tasks and assembles the jars                          |
 | `./gradlew jacocoTestReport` | -                       | Coverage report in `build/reports/jacoco`                                      |
 
-The `CI` workflow (`.github/workflows/ci.yml`) runs unit tests and then integration tests on every push to `main`.
+The `CI` workflow (`.github/workflows/ci.yml`) runs unit tests and then integration tests on every push to `main`,
+and releases the version in `build.gradle` when it is not a `-SNAPSHOT` (see below).
 
 Publishing goes to the Xeno Maven repository (`https://repo.myxeno.com/m2`) and needs `mavenU` and `mavenP`, either as environment variables or in `~/.gradle/gradle.properties`. Without them the repository is not registered, so `publishToMavenLocal` still works.
 Versions ending in `-SNAPSHOT` go to the snapshots repository, all others to releases:
@@ -238,8 +239,16 @@ Versions ending in `-SNAPSHOT` go to the snapshots repository, all others to rel
 ./gradlew publish
 ```
 
-To cut a release: drop `-SNAPSHOT` from `version` in `build.gradle`, build, publish, tag
-(e.g. `v0.4.0`), then move to the next `-SNAPSHOT`.
+To cut a release, set `version` in `build.gradle` to the release (drop `-SNAPSHOT`) and push it to `main`.
+After both test jobs pass, the `Release` job in `ci.yml`:
+
+1. stops if the version is a `-SNAPSHOT` or `v<version>` is already tagged, so ordinary pushes release nothing;
+2. runs `./gradlew publish` when the `MYXENO_MAVEN_USERNAME` and `MYXENO_MAVEN_PASSWORD` repository secrets
+   are set (without them, publish locally first);
+3. fails unless the artifact is downloadable from `repo.myxeno.com/m2/releases`;
+4. tags `v<version>` and creates the GitHub release.
+
+Then move `version` to the next `-SNAPSHOT` in a separate push.
 
 ## License
 
